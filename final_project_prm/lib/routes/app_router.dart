@@ -6,6 +6,7 @@ import '../features/auth/login_page.dart';
 import '../features/auth/register_page.dart';
 import '../features/home/home_page.dart';
 import '../features/home/main_tab.dart';
+import '../features/page/FindDoctors.dart';
 import 'route_names.dart';
 
 class AppRouter {
@@ -30,8 +31,11 @@ class AppRouter {
       case RouteNames.home:
         return MaterialPageRoute(builder: (_) => const HomePage());
 
-      case RouteNames.main: 
+      case RouteNames.main:
         return MaterialPageRoute(builder: (_) => const MainTab());
+
+      case RouteNames.findDoctors:
+        return MaterialPageRoute(builder: (_) => const FindDoctorsPage());
 
       default:
         return MaterialPageRoute(

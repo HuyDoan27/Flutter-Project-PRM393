@@ -6,4 +6,5 @@ class RouteNames {
   static const onboarding = '/onboarding';
   static const main = '/main';
   static const home = '/home';
+  static const findDoctors = '/find-doctors';
 }

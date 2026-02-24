@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../api/doctor_api.dart';
 
 class TopDoctorPage extends StatefulWidget {
   const TopDoctorPage({super.key});
@@ -8,372 +9,432 @@ class TopDoctorPage extends StatefulWidget {
 }
 
 class _TopDoctorPageState extends State<TopDoctorPage> {
-  String selectedCategory = 'All';
-  Set<int> favorites = {};
+  List<dynamic> doctors = [];
+  bool isLoading = true;
+  String? error;
+  final TextEditingController searchController = TextEditingController();
 
-  final List<String> categories = [
-    'All',
-    'General',
-    'Dentist',
-    'Nutritionist',
-    'Neurologic',
-    'Pediatric'
-  ];
+  @override
+  void initState() {
+    super.initState();
+    fetchDoctors();
+  }
 
-  final List<Map<String, dynamic>> doctors = [
-    {
-      'id': 1,
-      'name': 'Dr. Marcus Horizon',
-      'specialty': 'Cardiologist',
-      'hospital': 'Cardiology Center, USA',
-      'rating': 4.7,
-      'reviews': 1872,
-      'distance': '800m away',
-    },
-    {
-      'id': 2,
-      'name': 'Dr. Maria Elena',
-      'specialty': 'Psychologist',
-      'hospital': 'Mind Care Hospital',
-      'rating': 4.9,
-      'reviews': 1203,
-      'distance': '1.5km away',
-    },
-    {
-      'id': 3,
-      'name': 'Dr. Stevi Jessi',
-      'specialty': 'Orthopedist',
-      'hospital': 'Bone & Joint Clinic',
-      'rating': 4.8,
-      'reviews': 2436,
-      'distance': '2km away',
-    },
-    {
-      'id': 4,
-      'name': 'Dr. Alysa Hana',
-      'specialty': 'Pediatrician',
-      'hospital': 'Child Care Center',
-      'rating': 4.6,
-      'reviews': 891,
-      'distance': '1.2km away',
-    },
-    {
-      'id': 5,
-      'name': 'Dr. John Smith',
-      'specialty': 'Dentist',
-      'hospital': 'Dental Care Clinic',
-      'rating': 4.8,
-      'reviews': 1654,
-      'distance': '950m away',
-    },
-  ];
-
-  void toggleFavorite(int id) {
+  Future<void> fetchDoctors({String? name}) async {
     setState(() {
-      if (favorites.contains(id)) {
-        favorites.remove(id);
-      } else {
-        favorites.add(id);
-      }
+      isLoading = true;
+      error = null;
     });
+
+    try {
+      final data = await DoctorApi.getDoctors(name: name);
+      setState(() {
+        doctors = data;
+      });
+    } catch (e) {
+      setState(() {
+        error = "Failed to load doctors";
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  void _showDoctorDetail(Map<String, dynamic> doctor) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollController) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.all(24),
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
+              // Avatar + Name
+              Center(
+                child: Column(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: doctor["avatar"] != null
+                          ? Image.network(
+                              doctor["avatar"],
+                              width: 100,
+                              height: 100,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => _defaultAvatar(),
+                            )
+                          : _defaultAvatar(),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      doctor["fullName"] ?? "No Name",
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      doctor["experience"] ?? "",
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.teal.shade400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+              const Divider(),
+              const SizedBox(height: 16),
+
+              _detailSection(
+                icon: Icons.local_hospital_outlined,
+                iconColor: Colors.teal,
+                title: "Phòng khám",
+                content: doctor["clinicName"] ?? "—",
+              ),
+              const SizedBox(height: 12),
+              _detailSection(
+                icon: Icons.location_on_outlined,
+                iconColor: Colors.redAccent,
+                title: "Địa chỉ",
+                content: doctor["clinicAddress"] ?? "—",
+              ),
+              const SizedBox(height: 12),
+              _detailSection(
+                icon: Icons.email_outlined,
+                iconColor: Colors.blueAccent,
+                title: "Email",
+                content: doctor["email"] ?? "—",
+              ),
+              const SizedBox(height: 12),
+              _detailSection(
+                icon: Icons.phone_outlined,
+                iconColor: Colors.green,
+                title: "Số điện thoại",
+                content: doctor["phoneNumber"] ?? "—",
+              ),
+
+              // Qualifications
+              if (doctor["qualifications"] != null &&
+                  (doctor["qualifications"] as List).isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 16),
+                const Text(
+                  "Bằng cấp & Chứng chỉ",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+                ...List<String>.from(doctor["qualifications"]).map(
+                  (q) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.verified,
+                          size: 16,
+                          color: Color(0xFF00B4A5),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            q,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 24),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // TODO: navigate to booking page
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00B4A5),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    "Đặt lịch khám",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailSection({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String content,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 18, color: iconColor),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                content,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _defaultAvatar() {
+    return Container(
+      width: 70,
+      height: 70,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE6F7F5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: const Icon(Icons.person, size: 40, color: Color(0xFF00B4A5)),
+    );
+  }
+
+  Widget buildDoctorItem(Map<String, dynamic> doctor) {
+    return GestureDetector(
+      onTap: () => _showDoctorDetail(doctor),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.shade100,
+              blurRadius: 6,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Avatar
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: doctor["avatar"] != null
+                  ? Image.network(
+                      doctor["avatar"],
+                      width: 70,
+                      height: 70,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _defaultAvatar(),
+                    )
+                  : _defaultAvatar(),
+            ),
+            const SizedBox(width: 16),
+
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    doctor["fullName"] ?? "No Name",
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.local_hospital_outlined,
+                        size: 13,
+                        color: Colors.teal.shade400,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          doctor["clinicName"] ?? "Unknown Clinic",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 13,
+                        color: Colors.grey.shade400,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          doctor["clinicAddress"] ?? "",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.workspace_premium_outlined,
+                        size: 13,
+                        color: Colors.amber.shade600,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        doctor["experience"] ?? "",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Back Button & Title
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.arrow_back, size: 20),
-                          onPressed: () => Navigator.pop(context),
-                          padding: EdgeInsets.zero,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Text(
-                        'Top Doctor',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+      appBar: AppBar(
+        title: const Text("Top Doctors"),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          // Search
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: searchController,
+              onSubmitted: (value) => fetchDoctors(name: value),
+              decoration: InputDecoration(
+                hintText: "Search doctor...",
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 0,
+                  horizontal: 16,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
 
-                  // Search Bar
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search doctor...',
-                        border: InputBorder.none,
-                        icon: Icon(Icons.search, color: Colors.grey),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Category Filter
-                  SizedBox(
-                    height: 40,
+          // Body
+          Expanded(
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : error != null
+                ? Center(child: Text(error!))
+                : doctors.isEmpty
+                ? const Center(child: Text("No doctors found"))
+                : RefreshIndicator(
+                    onRefresh: () => fetchDoctors(),
                     child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: categories.length,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: doctors.length,
                       itemBuilder: (context, index) {
-                        final category = categories[index];
-                        final isSelected = selectedCategory == category;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: ChoiceChip(
-                            label: Text(category),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                selectedCategory = category;
-                              });
-                            },
-                            backgroundColor: Colors.grey.shade100,
-                            selectedColor: const Color(0xFF00B4A5),
-                            labelStyle: TextStyle(
-                              color: isSelected ? Colors.white : Colors.grey.shade700,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              side: BorderSide.none,
-                            ),
-                          ),
-                        );
+                        return buildDoctorItem(doctors[index]);
                       },
                     ),
                   ),
-                ],
-              ),
-            ),
-
-            // Doctor List
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: doctors.length,
-                itemBuilder: (context, index) {
-                  final doctor = doctors[index];
-                  final isFavorite = favorites.contains(doctor['id']);
-
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey.shade200),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.shade100,
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        // Doctor Image
-                        Container(
-                          width: 90,
-                          height: 90,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.blue.shade100,
-                                Colors.blue.shade200,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Center(
-                            child: Container(
-                              width: 60,
-                              height: 60,
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.person,
-                                size: 40,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-
-                        // Doctor Info
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          doctor['name'],
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          doctor['specialty'],
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Favorite Button
-                                  Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey.shade50,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: IconButton(
-                                      icon: Icon(
-                                        isFavorite
-                                            ? Icons.favorite
-                                            : Icons.favorite_border,
-                                        size: 18,
-                                        color: isFavorite
-                                            ? Colors.red
-                                            : Colors.grey.shade400,
-                                      ),
-                                      onPressed: () => toggleFavorite(doctor['id']),
-                                      padding: EdgeInsets.zero,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-
-                              // Hospital
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.location_on_outlined,
-                                    size: 14,
-                                    color: Colors.grey.shade400,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Expanded(
-                                    child: Text(
-                                      doctor['hospital'],
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade500,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-
-                              // Rating & Distance
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.star,
-                                        size: 16,
-                                        color: Colors.amber,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '${doctor['rating']}',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        '(${doctor['reviews']} reviews)',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey.shade400,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.location_on,
-                                        size: 14,
-                                        color: Color(0xFF00B4A5),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        doctor['distance'],
-                                        style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF00B4A5),
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

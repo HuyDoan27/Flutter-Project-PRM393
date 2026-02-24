@@ -1,8 +1,38 @@
 import 'package:flutter/material.dart';
+import '../../api/doctor_api.dart';
 import './top_doctor_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  List<dynamic> randomDoctors = [];
+  bool isDoctorLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchRandomDoctors();
+  }
+
+  Future<void> fetchRandomDoctors() async {
+    try {
+      final data = await DoctorApi.getRandomDoctors();
+      setState(() {
+        randomDoctors = data;
+      });
+    } catch (e) {
+      // fail silently
+    } finally {
+      setState(() {
+        isDoctorLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +49,6 @@ class HomePage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title and Notification
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -56,17 +85,24 @@ class HomePage extends StatelessWidget {
                     const SizedBox(height: 24),
 
                     // Search Bar
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: const TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Search doctor, drugs, articles...',
-                          border: InputBorder.none,
-                          icon: Icon(Icons.search, color: Colors.grey),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(30),
+                      onTap: () {
+                        Navigator.pushNamed(context, '/find-doctors');
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        child: const TextField(
+                          enabled: false,
+                          decoration: InputDecoration(
+                            hintText: 'Search doctor, drugs, articles...',
+                            border: InputBorder.none,
+                            icon: Icon(Icons.search, color: Colors.grey),
+                          ),
                         ),
                       ),
                     ),
@@ -82,17 +118,11 @@ class HomePage extends StatelessWidget {
                   children: [
                     _buildCategoryIcon(Icons.person_outline, 'Doctor'),
                     _buildCategoryIcon(
-                      Icons.medical_services_outlined,
-                      'Pharmacy',
-                    ),
+                        Icons.medical_services_outlined, 'Pharmacy'),
                     _buildCategoryIcon(
-                      Icons.local_hospital_outlined,
-                      'Hospital',
-                    ),
+                        Icons.local_hospital_outlined, 'Hospital'),
                     _buildCategoryIcon(
-                      Icons.local_shipping_outlined,
-                      'Ambulance',
-                    ),
+                        Icons.local_shipping_outlined, 'Ambulance'),
                   ],
                 ),
               ),
@@ -163,11 +193,8 @@ class HomePage extends StatelessWidget {
                             'https://via.placeholder.com/80x100',
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) {
-                              return const Icon(
-                                Icons.person,
-                                size: 60,
-                                color: Colors.grey,
-                              );
+                              return const Icon(Icons.person,
+                                  size: 60, color: Colors.grey);
                             },
                           ),
                         ),
@@ -178,7 +205,6 @@ class HomePage extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              // Top Doctor Section
               // Top Doctor Section
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -209,32 +235,22 @@ class HomePage extends StatelessWidget {
                   ],
                 ),
               ),
+
               SizedBox(
-                height: 180,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  children: [
-                    _buildDoctorCard(
-                      'Dr. Marcus Horiz',
-                      'Cardiologist',
-                      '4.7',
-                      '1,872 reviews',
-                    ),
-                    _buildDoctorCard(
-                      'Dr. Maria Elena',
-                      'Psychologist',
-                      '4.9',
-                      '1,203 reviews',
-                    ),
-                    _buildDoctorCard(
-                      'Dr. Stevi Jessi',
-                      'Orthopedist',
-                      '4.8',
-                      '2,436 reviews',
-                    ),
-                  ],
-                ),
+                height: 200,
+                child: isDoctorLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : randomDoctors.isEmpty
+                        ? const Center(child: Text("No doctors available"))
+                        : ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 24),
+                            itemCount: randomDoctors.length,
+                            itemBuilder: (context, index) {
+                              return _buildDoctorCard(randomDoctors[index]);
+                            },
+                          ),
               ),
               const SizedBox(height: 24),
 
@@ -296,7 +312,7 @@ class HomePage extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(height: 100), // Space for bottom nav
+              const SizedBox(height: 100),
             ],
           ),
         ),
@@ -310,8 +326,8 @@ class HomePage extends StatelessWidget {
         Container(
           width: 56,
           height: 56,
-          decoration: BoxDecoration(
-            color: const Color(0xFFE3F2FD),
+          decoration: const BoxDecoration(
+            color: Color(0xFFE3F2FD),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, color: const Color(0xFF00B4A5), size: 28),
@@ -322,14 +338,9 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  Widget _buildDoctorCard(
-    String name,
-    String specialty,
-    String rating,
-    String reviews,
-  ) {
+  Widget _buildDoctorCard(Map<String, dynamic> doctor) {
     return Container(
-      width: 120,
+      width: 140,
       margin: const EdgeInsets.only(right: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -347,41 +358,73 @@ class HomePage extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.grey.shade200,
-            child: const Icon(Icons.person, color: Colors.grey),
+          // Avatar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: doctor["avatar"] != null
+                ? Image.network(
+                    doctor["avatar"],
+                    width: 60,
+                    height: 60,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _defaultAvatarSmall(),
+                  )
+                : _defaultAvatarSmall(),
           ),
           const SizedBox(height: 8),
+
+          // Name
           Text(
-            name,
+            doctor["fullName"] ?? "No Name",
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
-          Text(
-            specialty,
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-          ),
           const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.star, size: 12, color: Colors.amber),
-              const SizedBox(width: 4),
-              Text(
-                rating,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
+
+          // Clinic
+          Text(
+            doctor["clinicName"] ?? "Unknown",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 6),
+
+          // Experience badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE6F7F5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              doctor["experience"] ?? "",
+              style: const TextStyle(
+                fontSize: 9,
+                color: Color(0xFF00B4A5),
+                fontWeight: FontWeight.w500,
               ),
-            ],
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _defaultAvatarSmall() {
+    return Container(
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE6F7F5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Icon(Icons.person, size: 32, color: Color(0xFF00B4A5)),
     );
   }
 
@@ -419,7 +462,8 @@ class HomePage extends StatelessWidget {
                 bottomLeft: Radius.circular(16),
               ),
             ),
-            child: Icon(Icons.article_outlined, size: 40, color: tagTextColor),
+            child:
+                Icon(Icons.article_outlined, size: 40, color: tagTextColor),
           ),
 
           // Article Info
@@ -429,12 +473,9 @@ class HomePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Tag
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
+                        horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: tagBgColor,
                       borderRadius: BorderRadius.circular(12),
@@ -449,8 +490,6 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-
-                  // Title
                   Text(
                     title,
                     style: const TextStyle(
@@ -462,37 +501,21 @@ class HomePage extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 8),
-
-                  // Date and Read Time
                   Row(
                     children: [
-                      Icon(
-                        Icons.calendar_today,
-                        size: 10,
-                        color: Colors.grey.shade500,
-                      ),
+                      Icon(Icons.calendar_today,
+                          size: 10, color: Colors.grey.shade500),
                       const SizedBox(width: 4),
-                      Text(
-                        date,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
+                      Text(date,
+                          style: TextStyle(
+                              fontSize: 10, color: Colors.grey.shade600)),
                       const SizedBox(width: 8),
-                      Icon(
-                        Icons.access_time,
-                        size: 10,
-                        color: Colors.grey.shade500,
-                      ),
+                      Icon(Icons.access_time,
+                          size: 10, color: Colors.grey.shade500),
                       const SizedBox(width: 4),
-                      Text(
-                        readTime,
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
+                      Text(readTime,
+                          style: TextStyle(
+                              fontSize: 10, color: Colors.grey.shade600)),
                     ],
                   ),
                 ],

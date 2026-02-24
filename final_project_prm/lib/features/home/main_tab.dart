@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../routes/route_names.dart';
+import '../page/FindDoctors.dart';
+import '../page/SchedulePage.dart';
+import '../page/ProfilePage.dart';
 import 'home_page.dart';
 
 class MainTab extends StatefulWidget {
@@ -11,12 +15,13 @@ class MainTab extends StatefulWidget {
 class _MainTabState extends State<MainTab> {
   int _currentIndex = 0;
 
-  final List<Widget> _pages = [
-    const HomePage(),
-    const Center(child: Text('Messages')),
-    const Center(child: Text('Schedule')),
-    const Center(child: Text('Profile')),
-  ];
+  late final List<Widget> _pages;
+
+  @override
+  void initState() {
+    super.initState();
+    _pages = const [HomePage(), FindDoctorsPage(), SchedulePage(), ProfilePage()];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,13 +40,10 @@ class _MainTabState extends State<MainTab> {
         showSelectedLabels: false,
         showUnselectedLabels: false,
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Home'),
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.mail_outline),
-            label: 'Messages',
+            icon: Icon(Icons.search),
+            label: 'Find Doctors',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today_outlined),

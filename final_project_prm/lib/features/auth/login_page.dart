@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../api/auth_api.dart';
 import '../../routes/route_names.dart';
 
 class LoginPage extends StatefulWidget {
@@ -10,6 +13,66 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   bool _obscurePassword = true;
+  bool _isLoading = false;
+
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final FlutterSecureStorage _storage = const FlutterSecureStorage();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleLogin() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+
+    if (email.isEmpty || password.isEmpty) {
+      _showError("Vui lòng nhập email và mật khẩu");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final res = await AuthApi.login(email: email, password: password);
+
+      // Lưu token và user vào storage
+      await _storage.write(key: "access_token", value: res["token"]);
+      await _storage.write(key: "user", value: jsonEncode(res["user"]));
+
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, RouteNames.main);
+    } on Exception catch (e) {
+      String message = "Đã xảy ra lỗi, vui lòng thử lại";
+
+      // Lấy message lỗi từ server nếu có
+      final errStr = e.toString();
+      if (errStr.contains("Email hoặc mật khẩu không đúng")) {
+        message = "Email hoặc mật khẩu không đúng";
+      } else if (errStr.contains("401")) {
+        message = "Vui lòng kiểm tra lại thông tin";
+      }
+
+      _showError(message);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,10 +97,11 @@ class _LoginPageState extends State<LoginPage> {
 
               // Email
               TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   hintText: 'Email',
                   prefixIcon: const Icon(Icons.email_outlined),
-                  suffixIcon: const Icon(Icons.check_circle, color: Colors.teal),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(16),
                   ),
@@ -48,6 +112,7 @@ class _LoginPageState extends State<LoginPage> {
 
               // Password
               TextField(
+                controller: _passwordController,
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   hintText: 'Password',
@@ -59,9 +124,7 @@ class _LoginPageState extends State<LoginPage> {
                           : Icons.visibility,
                     ),
                     onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
+                      setState(() => _obscurePassword = !_obscurePassword);
                     },
                   ),
                   border: OutlineInputBorder(
@@ -91,17 +154,26 @@ class _LoginPageState extends State<LoginPage> {
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.pushReplacementNamed(context, RouteNames.main),
+                  onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
                   ),
-                  child: const Text(
-                    'Login',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : const Text(
+                          'Login',
+                          style: TextStyle(fontSize: 16, color: Colors.white),
+                        ),
                 ),
               ),
 
@@ -113,9 +185,8 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   const Text("Don't have an account? "),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.pushNamed(context, RouteNames.signup);
-                    },
+                    onTap: () =>
+                        Navigator.pushNamed(context, RouteNames.signup),
                     child: const Text(
                       'Sign Up',
                       style: TextStyle(
@@ -150,19 +221,19 @@ class _LoginPageState extends State<LoginPage> {
                 onTap: () {},
               ),
               const SizedBox(height: 12),
-
               _socialButton(
                 icon: Icons.apple,
                 text: 'Sign in with Apple',
                 onTap: () {},
               ),
               const SizedBox(height: 12),
-
               _socialButton(
                 icon: Icons.facebook,
                 text: 'Sign in with Facebook',
                 onTap: () {},
               ),
+
+              const SizedBox(height: 24),
             ],
           ),
         ),
