@@ -1,27 +1,43 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
 import {
-  Search,
-  LayoutDashboard,
-  Users,
   FileText,
   Globe,
-  MessageCircle,
   Handshake,
-  Settings,
+  LayoutDashboard,
   LogOut,
+  MessageCircle,
+  Search,
+  Settings,
+  Users,
 } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { logoutApi } from '../../services/AuthService.js';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard',          path: '/' },
-  { icon: Users,           label: 'Users',              path: '/users' },
-  { icon: FileText,        label: 'Doctors',            path: '/doctors' },
-  { icon: Globe,           label: 'Payment',            path: '/payment' },
-  { icon: MessageCircle,   label: 'Clinic & Specialty', path: '/clinics' },
-  { icon: Handshake,       label: 'Appointment',        path: '/appointments' },
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
+  { icon: Users, label: 'Users', path: '/admin/users' },
+  { icon: FileText, label: 'Doctors', path: '/admin/doctors' },
+  { icon: Globe, label: 'Payment', path: '/admin/payment' },
+  { icon: MessageCircle, label: 'Clinic & Specialty', path: '/admin/clinics' },
+  { icon: Handshake, label: 'Appointment', path: '/admin/appointments' },
 ];
 
 const Sidebar = () => {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await logoutApi();
+    } catch (err) {
+      console.error("Logout error:", err);
+    } finally {
+      // Dù API lỗi vẫn xóa local và redirect
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      localStorage.removeItem("user");
+      navigate("/login");
+    }
+  };
   return (
     <aside className="w-64 h-screen bg-white border-r border-gray-200 flex flex-col shrink-0">
 
@@ -105,8 +121,11 @@ const Sidebar = () => {
         </button>
 
         {/* Logout */}
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
-                           text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+                 text-red-500 hover:bg-red-50 hover:text-red-700 transition-colors"
+        >
           <LogOut size={18} />
           Log out
         </button>

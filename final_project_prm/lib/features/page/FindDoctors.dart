@@ -247,9 +247,12 @@ class _FindDoctorsPageState extends State<FindDoctorsPage> {
   Widget _doctorCard(BuildContext context, Map<String, dynamic> doctor) {
     return GestureDetector(
       onTap: () {
+        // ✅ Truyền doctor object hoàn chỉnh
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => DoctorDetailPage(doctor: doctor)),
+          MaterialPageRoute(
+            builder: (_) => DoctorDetailPage(doctor: doctor),
+          ),
         );
       },
       child: Container(
@@ -365,41 +368,53 @@ class _FindDoctorsPageState extends State<FindDoctorsPage> {
         itemBuilder: (context, index) {
           final doctor = otherDoctors[index];
           final name = (doctor["fullName"] ?? "").toString().split(' ').last;
-          return Column(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+          
+          return GestureDetector(
+            onTap: () {
+              // ✅ Truyền doctor object khi tap
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DoctorDetailPage(doctor: doctor),
                 ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: doctor["avatar"] != null
-                      ? Image.network(
-                          doctor["avatar"],
-                          width: 60,
-                          height: 60,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _defaultAvatar(60),
-                        )
-                      : _defaultAvatar(60),
+              );
+            },
+            child: Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: doctor["avatar"] != null
+                        ? Image.network(
+                            doctor["avatar"],
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _defaultAvatar(60),
+                          )
+                        : _defaultAvatar(60),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
+                const SizedBox(height: 8),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       ),

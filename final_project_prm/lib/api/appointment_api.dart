@@ -44,4 +44,41 @@ class AppointmentApi {
       rethrow;
     }
   }
+
+  /// Tạo lịch hẹn
+  static Future<Map<String, dynamic>> createAppointment({
+    required String doctorId,
+    required String clinicId,
+    required String clinicName,
+    required DateTime appointmentDate,
+    required String reason,
+    String? notes,
+    required double amount,
+  }) async {
+    try {
+      final response = await _dio.post(
+        "/appointments",
+        data: {
+          "doctorId": doctorId,
+          "clinicId": clinicId,
+          "clinicName": clinicName,
+          "appointmentDate": appointmentDate.toIso8601String(),
+          "reason": reason,
+          "notes": notes,
+          "amount": amount,
+        },
+      );
+
+      if (response.data["success"] == true) {
+        return {
+          "success": true,
+          "message": response.data["message"] ?? "Tạo lịch hẹn thành công",
+        }; 
+      } else {
+        throw Exception(response.data["message"] ?? "Tạo lịch thất bại");
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

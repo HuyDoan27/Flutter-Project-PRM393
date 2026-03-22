@@ -30,7 +30,7 @@ import {
   getDoctorById,
   createDoctor,
   updateDoctorStatus,
-} from "../../services/DoctorService.js";
+} from "../../../services/DoctorService.js";
 
 // ─── Status config ──────────────────────────────────────────
 const STATUS_CFG = {

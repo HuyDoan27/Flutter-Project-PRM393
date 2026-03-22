@@ -1,28 +1,34 @@
 import React, { useEffect, useState, useCallback } from "react";
 import {
   Table, Card, Button, Tag, Modal, Select,
-  DatePicker, Space, Empty, Timeline, Avatar,
+  DatePicker, Space, Empty, Timeline, Avatar, Badge,
 } from "antd";
 import {
   Calendar, Eye, Clock, CheckCircle,
   XCircle, AlertCircle, User, Stethoscope,
-  MapPin, Phone, Mail,
+  MapPin, Phone, Mail, CreditCard, FileText, Info,
 } from "lucide-react";
 import dayjs from "dayjs";
 import {
   getAllAppointments,
   getDoctors,
   getClinics,
-} from "../../services/AppointmentService.js";
+} from "../../../services/AppointmentService.js";
 
 const { RangePicker } = DatePicker;
 
 // ─── Status config ───────────────────────────────────────
 const STATUS_CFG = {
-  pending:   { label: "Chờ xác nhận", color: "orange",  icon: <Clock size={13} /> },
-  confirmed: { label: "Đã xác nhận",  color: "blue",    icon: <AlertCircle size={13} /> },
-  completed: { label: "Hoàn thành",   color: "green",   icon: <CheckCircle size={13} /> },
-  cancelled: { label: "Đã hủy",       color: "red",     icon: <XCircle size={13} /> },
+  pending: { label: "Chờ xác nhận", color: "orange", icon: <Clock size={13} /> },
+  confirmed: { label: "Đã xác nhận", color: "blue", icon: <AlertCircle size={13} /> },
+  completed: { label: "Hoàn thành", color: "green", icon: <CheckCircle size={13} /> },
+  cancelled: { label: "Đã hủy", color: "red", icon: <XCircle size={13} /> },
+  waiting_payment: { label: "Chờ thanh toán", color: "gold", icon: <CreditCard size={13} /> },
+};
+
+const PAYMENT_STATUS_CFG = {
+  unpaid: { label: "Chưa thanh toán", color: "red" },
+  paid: { label: "Đã thanh toán", color: "green" },
 };
 
 const STATUS_OPTIONS = Object.keys(STATUS_CFG).map((key) => ({
@@ -45,15 +51,15 @@ const fmtDateTime = (iso) => {
 // ─── AppointmentList ─────────────────────────────────────
 const AppointmentList = () => {
   const [appointments, setAppointments] = useState([]);
-  const [total, setTotal]               = useState(0);
-  const [loading, setLoading]           = useState(true);
-  const [page, setPage]                 = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   // filters
-  const [statusFilter, setStatusFilter]     = useState(null);
-  const [dateRange, setDateRange]           = useState(null);
-  const [doctorFilter, setDoctorFilter]     = useState(null);
-  const [clinicFilter, setClinicFilter]     = useState(null);
+  const [statusFilter, setStatusFilter] = useState(null);
+  const [dateRange, setDateRange] = useState(null);
+  const [doctorFilter, setDoctorFilter] = useState(null);
+  const [clinicFilter, setClinicFilter] = useState(null);
 
   // dropdown options
   const [doctors, setDoctors] = useState([]);
@@ -61,7 +67,7 @@ const AppointmentList = () => {
 
   // detail modal
   const [detailOpen, setDetailOpen] = useState(false);
-  const [selected, setSelected]     = useState(null);
+  const [selected, setSelected] = useState(null);
 
   // ── Fetch appointments ────────────────────────────────
   const loadAppointments = useCallback(async () => {
@@ -73,7 +79,7 @@ const AppointmentList = () => {
       if (clinicFilter) params.clinicId = clinicFilter;
       if (dateRange && dateRange[0] && dateRange[1]) {
         params.fromDate = dateRange[0].format("YYYY-MM-DD");
-        params.toDate   = dateRange[1].format("YYYY-MM-DD");
+        params.toDate = dateRange[1].format("YYYY-MM-DD");
       }
       const res = await getAllAppointments(params);
       setAppointments(res.data.data);
@@ -94,7 +100,7 @@ const AppointmentList = () => {
         setDoctors(dRes.data.data || []);
         setClinics(cRes.data.data || []);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // ── Reset filters ─────────────────────────────────────
@@ -111,6 +117,12 @@ const AppointmentList = () => {
     setSelected(record);
     setDetailOpen(true);
   };
+
+  // Helper: lấy tên clinic — ưu tiên clinicId.name, fallback clinicName
+  const getClinicName = (r) => r.clinicId?.name || r.clinicName || "—";
+
+  // Helper: lấy tên bác sĩ
+  const getDoctorName = (r) => r.doctorId?.fullName || "Chưa phân công";
 
   // ── Table columns ─────────────────────────────────────
   const columns = [
@@ -140,7 +152,9 @@ const AppointmentList = () => {
       title: "Bác sĩ", key: "doctor",
       render: (_, r) => (
         <div>
-          <div style={{ fontWeight: 600, color: "#1f2937", fontSize: 13 }}>{r.doctorId?.fullName || "—"}</div>
+          <div style={{ fontWeight: 600, color: r.doctorId ? "#1f2937" : "#9ca3af", fontSize: 13, fontStyle: r.doctorId ? "normal" : "italic" }}>
+            {getDoctorName(r)}
+          </div>
           {r.doctorId?.specialty?.name && (
             <Tag color="purple" style={{ fontSize: 11, marginTop: 3, borderRadius: 20 }}>
               {r.doctorId.specialty.name}
@@ -150,8 +164,17 @@ const AppointmentList = () => {
       ),
     },
     {
-      title: "Phòng khám", dataIndex: ["clinicId", "name"], key: "clinic",
-      render: (v) => <span style={{ fontSize: 13, color: "#4b5563" }}>{v || "—"}</span>,
+      title: "Phòng khám", key: "clinic",
+      render: (_, r) => (
+        <div>
+          <div style={{ fontSize: 13, color: "#4b5563", fontWeight: 500 }}>{getClinicName(r)}</div>
+          {r.location && (
+            <div style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 3, marginTop: 2 }}>
+              <MapPin size={11} /> {r.location}
+            </div>
+          )}
+        </div>
+      ),
     },
     {
       title: "Ngày khám", dataIndex: "appointmentDate", key: "date",
@@ -161,6 +184,17 @@ const AppointmentList = () => {
           <span style={{ fontSize: 13, fontWeight: 600, color: "#1f2937" }}>{fmtDate(v)}</span>
         </div>
       ),
+    },
+    {
+      title: "Thanh toán", key: "payment",
+      render: (_, r) => {
+        const cfg = PAYMENT_STATUS_CFG[r.paymentStatus] || PAYMENT_STATUS_CFG.unpaid;
+        return (
+          <Tag color={cfg.color} style={{ fontSize: 11, fontWeight: 600, borderRadius: 20 }}>
+            {cfg.label}
+          </Tag>
+        );
+      },
     },
     {
       title: "Trạng thái", dataIndex: "status", key: "status",
@@ -203,7 +237,7 @@ const AppointmentList = () => {
             allowClear
             value={statusFilter}
             onChange={(v) => { setStatusFilter(v); setPage(1); }}
-            style={{ width: 160 }}
+            style={{ width: 180 }}
             options={STATUS_OPTIONS}
           />
 
@@ -266,7 +300,7 @@ const AppointmentList = () => {
       <Modal
         open={detailOpen}
         onCancel={() => { setDetailOpen(false); setSelected(null); }}
-        width={600}
+        width={620}
         footer={null}
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
@@ -276,10 +310,16 @@ const AppointmentList = () => {
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "#111827" }}>Chi tiết lịch khám</div>
               {selected && (
-                <Tag color={STATUS_CFG[selected.status]?.color}
-                  style={{ fontSize: 11, fontWeight: 600, borderRadius: 20, marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  {STATUS_CFG[selected.status]?.icon} {STATUS_CFG[selected.status]?.label}
-                </Tag>
+                <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                  <Tag color={STATUS_CFG[selected.status]?.color}
+                    style={{ fontSize: 11, fontWeight: 600, borderRadius: 20, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    {STATUS_CFG[selected.status]?.icon} {STATUS_CFG[selected.status]?.label}
+                  </Tag>
+                  <Tag color={PAYMENT_STATUS_CFG[selected.paymentStatus]?.color}
+                    style={{ fontSize: 11, fontWeight: 600, borderRadius: 20 }}>
+                    {PAYMENT_STATUS_CFG[selected.paymentStatus]?.label || "—"}
+                  </Tag>
+                </div>
               )}
             </div>
           </div>
@@ -288,7 +328,8 @@ const AppointmentList = () => {
         {selected && (
           <>
             {/* Info grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16, marginTop: 4 }}>
+
               {/* Bệnh nhân */}
               <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 14px" }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
@@ -308,14 +349,20 @@ const AppointmentList = () => {
                 <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
                   <Stethoscope size={11} /> Bác sĩ
                 </div>
-                <div style={{ fontWeight: 600, color: "#1f2937", fontSize: 14, marginBottom: 2 }}>{selected.doctorId?.fullName || "—"}</div>
-                <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
-                  <Phone size={11} /> {selected.doctorId?.phoneNumber || "—"}
-                </div>
-                {selected.doctorId?.specialty?.name && (
-                  <Tag color="purple" style={{ fontSize: 11, marginTop: 6, borderRadius: 20 }}>
-                    {selected.doctorId.specialty.name}
-                  </Tag>
+                {selected.doctorId ? (
+                  <>
+                    <div style={{ fontWeight: 600, color: "#1f2937", fontSize: 14, marginBottom: 2 }}>{selected.doctorId.fullName}</div>
+                    <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
+                      <Phone size={11} /> {selected.doctorId.phoneNumber || "—"}
+                    </div>
+                    {selected.doctorId.specialty?.name && (
+                      <Tag color="purple" style={{ fontSize: 11, marginTop: 6, borderRadius: 20 }}>
+                        {selected.doctorId.specialty.name}
+                      </Tag>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ fontSize: 13, color: "#9ca3af", fontStyle: "italic" }}>Chưa phân công bác sĩ</div>
                 )}
               </div>
 
@@ -324,8 +371,15 @@ const AppointmentList = () => {
                 <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
                   <MapPin size={11} /> Phòng khám
                 </div>
-                <div style={{ fontWeight: 600, color: "#1f2937", fontSize: 14, marginBottom: 2 }}>{selected.clinicId?.name || "—"}</div>
-                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{selected.clinicId?.address || "—"}</div>
+                <div style={{ fontWeight: 600, color: "#1f2937", fontSize: 14, marginBottom: 2 }}>{getClinicName(selected)}</div>
+                {selected.clinicId?.address && (
+                  <div style={{ fontSize: 12, color: "#6b7280", marginTop: 2 }}>{selected.clinicId.address}</div>
+                )}
+                {selected.location && (
+                  <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
+                    <MapPin size={11} /> {selected.location}
+                  </div>
+                )}
                 {selected.clinicId?.phone && (
                   <div style={{ fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center", gap: 4, marginTop: 3 }}>
                     <Phone size={11} /> {selected.clinicId.phone}
@@ -341,13 +395,49 @@ const AppointmentList = () => {
                 <div style={{ fontWeight: 700, color: "#f59e0b", fontSize: 16 }}>{fmtDate(selected.appointmentDate)}</div>
               </div>
 
-              {/* Lý do */}
+              {/* Thanh toán */}
               <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 14px" }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>
-                  Lý do khám
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                  <CreditCard size={11} /> Thanh toán
                 </div>
-                <div style={{ fontSize: 13, color: "#4b5563", lineHeight: 1.5 }}>{selected.reason || "—"}</div>
+                <Tag color={PAYMENT_STATUS_CFG[selected.paymentStatus]?.color}
+                  style={{ fontSize: 12, fontWeight: 600, borderRadius: 20 }}>
+                  {PAYMENT_STATUS_CFG[selected.paymentStatus]?.label || "—"}
+                </Tag>
+                {selected.paymentOrderCode && (
+                  <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 6 }}>
+                    Mã đơn: #{selected.paymentOrderCode}
+                  </div>
+                )}
               </div>
+
+              {/* Lý do */}
+              <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 14px", gridColumn: "span 2" }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                  <FileText size={11} /> Lý do khám
+                </div>
+                <div style={{ fontSize: 13, color: "#4b5563", lineHeight: 1.6 }}>{selected.reason || "—"}</div>
+              </div>
+
+              {/* Ghi chú */}
+              {selected.notes && (
+                <div style={{ background: "#f9fafb", borderRadius: 10, padding: "12px 14px", gridColumn: "span 2" }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                    <Info size={11} /> Ghi chú
+                  </div>
+                  <div style={{ fontSize: 13, color: "#4b5563", lineHeight: 1.6, fontStyle: "italic" }}>{selected.notes}</div>
+                </div>
+              )}
+
+              {/* Lý do hủy */}
+              {selected.cancellationReason && (
+                <div style={{ background: "#fef2f2", borderRadius: 10, padding: "12px 14px", gridColumn: "span 2", border: "1px solid #fecaca" }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "#ef4444", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                    <XCircle size={11} /> Lý do hủy
+                  </div>
+                  <div style={{ fontSize: 13, color: "#dc2626", lineHeight: 1.6 }}>{selected.cancellationReason}</div>
+                </div>
+              )}
             </div>
 
             {/* Status History */}
@@ -361,15 +451,22 @@ const AppointmentList = () => {
                     items={selected.statusHistory.map((hist) => {
                       const cfg = STATUS_CFG[hist.status] || STATUS_CFG.pending;
                       return {
-                        color: cfg.color === "orange" ? "orange" : cfg.color === "blue" ? "blue" : cfg.color === "green" ? "green" : "red",
+                        color: cfg.color,
                         children: (
                           <div>
                             <div style={{ fontWeight: 600, fontSize: 13, color: "#1f2937", display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
                               {cfg.icon} {cfg.label}
                             </div>
-                            <div style={{ fontSize: 12, color: "#6b7280" }}>{fmtDateTime(hist.changedAt)}</div>
-                            {hist.note && (
-                              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, fontStyle: "italic" }}>"{hist.note}"</div>
+                            <div style={{ fontSize: 12, color: "#6b7280" }}>
+                              {fmtDateTime(hist.timestamp || hist.changedAt)}
+                              {hist.updatedBy === "system" && (
+                                <Tag style={{ marginLeft: 6, fontSize: 10, borderRadius: 10 }}>Hệ thống</Tag>
+                              )}
+                            </div>
+                            {(hist.reason || hist.note) && (
+                              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 4, fontStyle: "italic" }}>
+                                "{hist.reason || hist.note}"
+                              </div>
                             )}
                           </div>
                         ),

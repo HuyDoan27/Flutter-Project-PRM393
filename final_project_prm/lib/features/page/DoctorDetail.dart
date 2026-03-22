@@ -18,9 +18,9 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
   static const Color lightBg = Color(0xFFF8FFFD);
 
   // Generate 7 ngày từ hôm nay
-  late final List<Map<String, String>> dates = _generateDates();
+  late final List<Map<String, dynamic>> dates = _generateDates();
 
-  List<Map<String, String>> _generateDates() {
+  List<Map<String, dynamic>> _generateDates() {
     final List<String> dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     final List<String> monthNames = [
       'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4',
@@ -38,6 +38,7 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
         'year': date.year.toString(),
         'fullDate':
             '${dayNames[date.weekday % 7]}, ${date.day} ${monthNames[date.month - 1]} ${date.year}',
+        'dateObj': date, // ✅ DateTime object
       };
     });
   }
@@ -101,6 +102,11 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
     final List<String> qualifications = doctor["qualifications"] != null
         ? List<String>.from(doctor["qualifications"])
         : [];
+
+    // ✅ Lấy doctorId từ _id
+    final String doctorId = doctor["_id"] ?? "";
+    // ✅ Lấy clinicId từ clinic
+    final String clinicId = doctor["clinicId"] ?? "";
 
     return Scaffold(
       backgroundColor: lightBg,
@@ -435,12 +441,23 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
               height: 56,
               child: ElevatedButton(
                 onPressed: () {
+                  // ✅ Kiểm tra doctorId và clinicId
+                  if (doctorId.isEmpty || clinicId.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Thông tin bác sĩ không hợp lệ'),
+                        backgroundColor: Colors.red.shade600,
+                      ),
+                    );
+                    return;
+                  }
+
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => AppointmentPage(
-                        doctor: widget.doctor,
-                        selectedDate: dates[selectedDateIndex]['fullDate']!,
+                        doctor: widget.doctor, // ✅ Truyền full doctor object
+                        selectedDate: dates[selectedDateIndex]['dateObj']!,
                         selectedTime: times[selectedTimeIndex],
                       ),
                     ),

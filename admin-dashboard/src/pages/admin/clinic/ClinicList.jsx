@@ -13,31 +13,34 @@ import {
   updateClinic,
   getSpecialtiesByClinic,
   getAllSpecialties,
-} from "../../services/ClinicService.js";
+} from "../../../services/ClinicService.js";
 
 // ─── ClinicList ──────────────────────────────────────────────
 const ClinicList = () => {
-  const [clinics, setClinics]       = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState("");
+  const [clinics, setClinics] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  const [editSpecialties, setEditSpecialties] = useState([]);
+  const [editSpecLoading, setEditSpecLoading] = useState(false);
 
   // all specialties cho create form
   const [allSpecialties, setAllSpecialties] = useState([]);
 
   // modals
   const [createOpen, setCreateOpen] = useState(false);
-  const [editOpen, setEditOpen]     = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [selected, setSelected]     = useState(null);
+  const [selected, setSelected] = useState(null);
 
   // detail data (specialties fetched fresh)
   const [detailSpecialties, setDetailSpecialties] = useState([]);
-  const [detailLoading, setDetailLoading]         = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   // form loading
   const [formLoading, setFormLoading] = useState(false);
   const [createForm] = Form.useForm();
-  const [editForm]   = Form.useForm();
+  const [editForm] = Form.useForm();
 
   // ── Fetch clinics ─────────────────────────────────────
   const loadClinics = useCallback(async () => {
@@ -58,7 +61,7 @@ const ClinicList = () => {
   useEffect(() => {
     getAllSpecialties()
       .then((res) => setAllSpecialties(res.data.data || []))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // ── Client-side search ────────────────────────────────
@@ -84,17 +87,32 @@ const ClinicList = () => {
   };
 
   // ── Open edit ─────────────────────────────────────────
-  const handleOpenEdit = (clinic) => {
+  const handleOpenEdit = async (clinic) => {
     setSelected(clinic);
-    editForm.setFieldsValue({
-      name:        clinic.name,
-      address:     clinic.address,
-      phone:       clinic.phone,
-      description: clinic.description,
-      // khi edit, specialties chỉ chọn từ những cái đã thuộc clinic
-      specialties: clinic.specialties?.map((s) => s._id) || [],
-    });
     setEditOpen(true);
+    setEditSpecialties([]);
+
+    // Set các field text trước để modal không bị trống
+    editForm.setFieldsValue({
+      name: clinic.name,
+      address: clinic.address,
+      phone: clinic.phone,
+      description: clinic.description,
+      specialties: [],
+    });
+
+    try {
+      setEditSpecLoading(true);
+      const res = await getSpecialtiesByClinic(clinic._id);
+      const specs = res.data.specialties || [];
+      setEditSpecialties(specs);
+      // Set specialties đã chọn sau khi fetch xong
+      editForm.setFieldValue("specialties", specs.map((s) => s._id));
+    } catch (err) {
+      console.error("Fetch specialties for edit failed", err);
+    } finally {
+      setEditSpecLoading(false);
+    }
   };
 
   // ── Update ────────────────────────────────────────────
@@ -294,17 +312,20 @@ const ClinicList = () => {
           </Button>,
         ]}
       >
-        <Form form={createForm} layout="vertical" style={{ marginTop: 8 }}>
-          <ClinicFormFields
-            specialtyOptions={allSpecialties.map((s) => ({ value: s._id, label: s.name }))}
-          />
+        <Form form={editForm} layout="vertical" style={{ marginTop: 8 }}>
+          <Spin spinning={editSpecLoading}>
+            <ClinicFormFields
+              specialtyOptions={allSpecialties.map((s) => ({ value: s._id, label: s.name }))}
+            />
+          </Spin>
         </Form>
       </Modal>
 
       {/* ══ MODAL: Edit ════════════════════════════════════ */}
+      {/* ══ MODAL: Edit ════════════════════════════════════ */}
       <Modal
         open={editOpen}
-        onCancel={() => { setEditOpen(false); editForm.resetFields(); setSelected(null); }}
+        onCancel={() => { setEditOpen(false); editForm.resetFields(); setSelected(null); setEditSpecialties([]); }}
         width={500}
         title={
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
@@ -318,7 +339,7 @@ const ClinicList = () => {
           </div>
         }
         footer={[
-          <Button key="cancel" onClick={() => { setEditOpen(false); editForm.resetFields(); setSelected(null); }}
+          <Button key="cancel" onClick={() => { setEditOpen(false); editForm.resetFields(); setSelected(null); setEditSpecialties([]); }}
             style={{ borderRadius: 10, height: 38, fontSize: 14, fontWeight: 600 }}>Hủy</Button>,
           <Button key="submit" type="primary" loading={formLoading} onClick={handleUpdate}
             icon={<Edit2 size={15} />}
@@ -328,10 +349,11 @@ const ClinicList = () => {
         ]}
       >
         <Form form={editForm} layout="vertical" style={{ marginTop: 8 }}>
-          {/* NOTE: updateClinic validate specialties phải thuộc clinic → chỉ cho chọn từ specialties đã có */}
-          <ClinicFormFields
-            specialtyOptions={selected?.specialties?.map((s) => ({ value: s._id, label: s.name })) || []}
-          />
+          <Spin spinning={editSpecLoading}>
+            <ClinicFormFields
+              specialtyOptions={allSpecialties.map((s) => ({ value: s._id, label: s.name }))}
+            />
+          </Spin>
         </Form>
       </Modal>
 

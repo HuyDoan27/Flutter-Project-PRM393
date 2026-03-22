@@ -17,7 +17,7 @@ import {
   ArrowUpOutlined,
   ArrowDownOutlined,
 } from "@ant-design/icons";
-import { getDashboardStats } from "../../services/DashboardService";
+import { getDashboardStats } from "../../../services/DashboardService";
 
 // ─── Color tokens ───────────────────────────────────────
 const COLORS = {

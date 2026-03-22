@@ -16,7 +16,7 @@ import {
     User
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { getUsers, getUsersWithAppointments } from "../../services/UserService.js";
+import { getUsers, getUsersWithAppointments } from "../../../services/UserService.js";
 
 // ─── Config ─────────────────────────────────────────────────
 const ROLE_CFG = {

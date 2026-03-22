@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../api/appointment_api.dart';
 
-class AppointmentPage extends StatelessWidget {
+class AppointmentPage extends StatefulWidget {
   final Map<String, dynamic> doctor;
-  final String selectedDate;
+  final DateTime selectedDate;
   final String selectedTime;
 
   const AppointmentPage({
@@ -12,8 +13,49 @@ class AppointmentPage extends StatelessWidget {
     required this.selectedTime,
   });
 
+  @override
+  State<AppointmentPage> createState() => _AppointmentPageState();
+}
+
+class _AppointmentPageState extends State<AppointmentPage> {
   static const Color primaryColor = Colors.teal;
   static const Color lightBg = Color(0xFFF8FFFD);
+
+  late TextEditingController _reasonController;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  // ✅ Giá khám (có thể lấy từ doctor data)
+  static const int consultationFee = 1400000; // 1.4M đ
+  static const int adminFee = 50000; // 50k đ
+  static const int discount = 200000; // 200k đ
+  static const int totalAmount =
+      consultationFee + adminFee - discount; // 1.25M đ
+
+  // ✅ Extract doctorId và clinicId từ doctor data
+  late final String _doctorId;
+  late final String _clinicId;
+
+  @override
+  void initState() {
+    super.initState();
+    _reasonController = TextEditingController(text: 'Khám tổng quát');
+
+    // ✅ Lấy từ API response
+    _doctorId = widget.doctor['_id'] ?? '';
+    _clinicId = widget.doctor['clinicId'] ?? '';
+
+    print('🔍 Doctor data: ${widget.doctor}');
+
+    print('✅ Doctor ID: $_doctorId');
+    print('✅ Clinic ID: $_clinicId');
+  }
+
+  @override
+  void dispose() {
+    _reasonController.dispose();
+    super.dispose();
+  }
 
   Widget _defaultAvatar(double size) {
     return Container(
@@ -23,18 +65,192 @@ class AppointmentPage extends StatelessWidget {
         color: const Color(0xFFE6F7F5),
         borderRadius: BorderRadius.circular(size * 0.25),
       ),
-      child: Icon(Icons.person,
-          size: size * 0.55, color: const Color(0xFF00B4A5)),
+      child: Icon(
+        Icons.person,
+        size: size * 0.55,
+        color: const Color(0xFF00B4A5),
+      ),
     );
+  }
+
+  // ============================================
+  // FORMAT DATE
+  // ============================================
+  String _formatDateForDisplay(DateTime date) {
+    final List<String> dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    final List<String> monthNames = [
+      'Tháng 1',
+      'Tháng 2',
+      'Tháng 3',
+      'Tháng 4',
+      'Tháng 5',
+      'Tháng 6',
+      'Tháng 7',
+      'Tháng 8',
+      'Tháng 9',
+      'Tháng 10',
+      'Tháng 11',
+      'Tháng 12',
+    ];
+
+    return '${dayNames[date.weekday % 7]}, ${date.day} ${monthNames[date.month - 1]} ${date.year}';
+  }
+
+  // ============================================
+  // COMBINE DATE & TIME
+  // ============================================
+  DateTime _combineDateTime(DateTime date, String time) {
+    // Parse time string "09:00 AM" → hour, minute
+    final timeParts = time.split(' ');
+    final hourMin = timeParts[0].split(':');
+    int hour = int.parse(hourMin[0]);
+    final minute = int.parse(hourMin[1]);
+    final isPM = timeParts[1] == 'PM';
+
+    // Convert 12-hour to 24-hour format
+    if (isPM && hour != 12) {
+      hour += 12;
+    } else if (!isPM && hour == 12) {
+      hour = 0;
+    }
+
+    return DateTime(date.year, date.month, date.day, hour, minute);
+  }
+
+  // ============================================
+  // CALL API - Create appointment
+  // ============================================
+  Future<void> _createAppointment() async {
+    // ✅ Validate reason
+    if (_reasonController.text.isEmpty) {
+      setState(() {
+        _errorMessage = 'Vui lòng nhập lý do khám';
+      });
+      return;
+    }
+
+    // ✅ Validate doctorId và clinicId
+    if (_doctorId.isEmpty || _clinicId.isEmpty) {
+      setState(() {
+        _errorMessage = 'Thông tin bác sĩ không hợp lệ (thiếu ID)';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final appointmentDate = _combineDateTime(
+        widget.selectedDate,
+        widget.selectedTime,
+      );
+
+      print('🔍 DEBUG - Doctor ID: $_doctorId');
+      print('🔍 DEBUG - Clinic ID: $_clinicId');
+      print('🔍 DEBUG - Appointment DateTime: $appointmentDate');
+      print('🔍 DEBUG - Reason: ${_reasonController.text}');
+
+      // ✅ Gọi API tạo lịch hẹn
+      final result = await AppointmentApi.createAppointment(
+        doctorId: _doctorId,
+        clinicId: _clinicId,
+        clinicName: widget.doctor['clinicName'] ?? 'Phòng khám',
+        appointmentDate: appointmentDate,
+        reason: _reasonController.text.trim(),
+        notes: null,
+        amount: totalAmount.toDouble(), // ✅ Truyền amount
+      );
+
+      if (mounted) {
+        // ✅ Hiển thị success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Đặt lịch khám thành công! Vui lòng chờ xác nhận.',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: primaryColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        // ✅ Quay lại màn hình trước sau 2 giây
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.pop(context);
+          }
+        });
+      }
+    } catch (e) {
+      final errorMsg = e.toString();
+      setState(() {
+        _errorMessage = errorMsg.contains('Exception:')
+            ? errorMsg.replaceAll('Exception: ', '')
+            : 'Có lỗi xảy ra: $errorMsg';
+      });
+
+      print('❌ Error: $_errorMessage');
+
+      // ✅ Hiển thị error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    _errorMessage ?? 'Có lỗi xảy ra, vui lòng thử lại',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade600,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final String fullName = doctor["fullName"] ?? "No Name";
-    final String avatar = doctor["avatar"] ?? "";
-    final String clinicName = doctor["clinicName"] ?? "—";
-    final String clinicAddress = doctor["clinicAddress"] ?? "—";
-    final String experience = doctor["experience"] ?? "—";
+    final String fullName = widget.doctor["fullName"] ?? "No Name";
+    final String avatar = widget.doctor["avatar"] ?? "";
+    final String clinicName = widget.doctor["clinicName"] ?? "—";
+    final String clinicAddress = widget.doctor["clinicAddress"] ?? "—";
+    final String experience = widget.doctor["experience"] ?? "—";
+
+    final displayDate = _formatDateForDisplay(widget.selectedDate);
 
     return Scaffold(
       backgroundColor: lightBg,
@@ -102,15 +318,19 @@ class AppointmentPage extends StatelessWidget {
                         const SizedBox(height: 6),
                         Row(
                           children: [
-                            Icon(Icons.local_hospital_outlined,
-                                size: 14, color: Colors.teal.shade400),
+                            Icon(
+                              Icons.local_hospital_outlined,
+                              size: 14,
+                              color: Colors.teal.shade400,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 clinicName,
                                 style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade700),
+                                  fontSize: 13,
+                                  color: Colors.grey.shade700,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -120,15 +340,19 @@ class AppointmentPage extends StatelessWidget {
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.location_on_outlined,
-                                size: 14, color: Colors.grey.shade500),
+                            Icon(
+                              Icons.location_on_outlined,
+                              size: 14,
+                              color: Colors.grey.shade500,
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 clinicAddress,
                                 style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade500),
+                                  fontSize: 12,
+                                  color: Colors.grey.shade500,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -138,7 +362,9 @@ class AppointmentPage extends StatelessWidget {
                         const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE6F7F5),
                             borderRadius: BorderRadius.circular(12),
@@ -175,19 +401,86 @@ class AppointmentPage extends StatelessWidget {
             _infoCard(
               icon: Icons.calendar_today,
               title: 'Ngày khám',
-              value: selectedDate,
+              value: displayDate,
             ),
             const SizedBox(height: 12),
             _infoCard(
               icon: Icons.access_time,
               title: 'Giờ khám',
-              value: selectedTime,
+              value: widget.selectedTime,
             ),
             const SizedBox(height: 12),
-            _infoCard(
-              icon: Icons.note_alt_outlined,
-              title: 'Lý do khám',
-              value: 'Đau tức ngực, khó thở',
+
+            // ===== REASON INPUT FIELD =====
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.note_alt_outlined,
+                          color: primaryColor,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Text(
+                        'Lý do khám',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _reasonController,
+                    maxLines: 3,
+                    maxLength: 200,
+                    decoration: InputDecoration(
+                      hintText: 'Nhập lý do khám...',
+                      hintStyle: TextStyle(color: Colors.grey.shade400),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: primaryColor,
+                          width: 2,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.all(12),
+                      counterStyle: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
 
             const SizedBox(height: 28),
@@ -218,19 +511,26 @@ class AppointmentPage extends StatelessWidget {
               ),
               child: Column(
                 children: [
-                  _paymentRow('Phí khám bệnh', '1.400.000 đ'),
-                  _paymentRow('Phí hành chính', '50.000 đ'),
-                  _paymentRow('Giảm giá ưu đãi', '-200.000 đ'),
+                  _paymentRow('Phí khám bệnh', '${consultationFee ~/ 1000}k đ'),
+                  _paymentRow('Phí hành chính', '${adminFee ~/ 1000}k đ'),
+                  _paymentRow('Giảm giá ưu đãi', '-${discount ~/ 1000}k đ'),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
                     child: Divider(height: 1),
                   ),
-                  _paymentRow('Tổng cộng', '1.250.000 đ', isTotal: true),
+                  _paymentRow(
+                    'Tổng cộng',
+                    '${totalAmount ~/ 1000}k đ',
+                    isTotal: true,
+                  ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Icon(Icons.credit_card,
-                          color: primaryColor, size: 20),
+                      const Icon(
+                        Icons.credit_card,
+                        color: primaryColor,
+                        size: 20,
+                      ),
                       const SizedBox(width: 10),
                       Text(
                         'Thanh toán bằng VISA **** 4242',
@@ -245,9 +545,43 @@ class AppointmentPage extends StatelessWidget {
               ),
             ),
 
+            // ===== ERROR MESSAGE =====
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      color: Colors.red.shade600,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontSize: 13,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             const SizedBox(height: 40),
 
-            // ===== BOOKING BUTTON =====
+            // ===== CONFIRM BUTTON =====
             Row(
               children: [
                 Column(
@@ -255,12 +589,15 @@ class AppointmentPage extends StatelessWidget {
                   children: [
                     Text(
                       'Tổng thanh toán',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 13,
+                      ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      '1.250.000 đ',
-                      style: TextStyle(
+                    Text(
+                      '${totalAmount ~/ 1000}k đ',
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         color: primaryColor,
@@ -273,44 +610,35 @@ class AppointmentPage extends StatelessWidget {
                   child: SizedBox(
                     height: 60,
                     child: ElevatedButton(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Row(
-                              children: [
-                                Icon(Icons.check_circle, color: Colors.white),
-                                SizedBox(width: 12),
-                                Text(
-                                  'Đặt lịch thành công! Bạn sẽ nhận thông báo sớm.',
-                                  style:
-                                      TextStyle(fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ),
-                            backgroundColor: primaryColor,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        );
-                      },
+                      onPressed: _isLoading ? null : _createAppointment,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,
+                        disabledBackgroundColor: Colors.grey.shade400,
                         elevation: 10,
                         shadowColor: primaryColor.withOpacity(0.4),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      child: const Text(
-                        'Xác nhận đặt lịch',
-                        style: TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : const Text(
+                              'Xác nhận đặt lịch',
+                              style: TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ),
@@ -358,14 +686,15 @@ class AppointmentPage extends StatelessWidget {
             children: [
               Text(
                 title,
-                style:
-                    TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
               ),
               const SizedBox(height: 4),
               Text(
                 value,
                 style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -385,6 +714,7 @@ class AppointmentPage extends StatelessWidget {
             style: TextStyle(
               fontSize: isTotal ? 16 : 15,
               color: isTotal ? Colors.black87 : Colors.grey.shade700,
+              fontWeight: isTotal ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
           Text(

@@ -1,22 +1,21 @@
-import { Routes, Route } from "react-router-dom";
-import AdminLayout from "../components/layout/AdminLayout";
-import Dashboard from "../pages/dashboard/Dashboard";
-import DoctorList from "../pages/doctors/DoctorList";
-import UserList from "../pages/users/UserList";
-import ClinicList from "../pages/clinic/ClinicList";
-import AppointmentList from "../pages/appointments/AppoinmentList";
+import { Routes, Route, Navigate } from "react-router-dom";
+import Login from "../pages/auth/Login";
+import AdminRoutes from "./AdminRoutes";
+import DoctorRoutes from "./DoctorRoutes";
 
 const AppRoutes = () => (
   <Routes>
-    <Route element={<AdminLayout />}>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/doctors" element={<DoctorList />} />
-      <Route path="/users" element={<UserList/>}/>
-      <Route path="/clinics" element={<ClinicList />} />
-      <Route path="/appointments" element={<AppointmentList />} />
-    </Route>
+    {/* ✅ Mặc định vào login */}
+    <Route path="/" element={<Navigate to="/login" replace />} />
+
+    <Route path="/login" element={<Login />} />
+
+    {AdminRoutes}
+    {DoctorRoutes}
+
+    {/* ✅ Nếu nhập sai URL */}
+    <Route path="*" element={<Navigate to="/login" replace />} />
   </Routes>
 );
 
 export default AppRoutes;
-  
