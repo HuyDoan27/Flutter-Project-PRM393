@@ -192,15 +192,6 @@ const ClinicList = () => {
       ),
     },
     {
-      title: "Bác sĩ", key: "doctors",
-      render: (_, r) => (
-        <Tag color="blue" style={{ borderRadius: 20, fontWeight: 700, fontSize: 12 }}>
-          <Users size={12} style={{ marginRight: 4, verticalAlign: "middle" }} />
-          {r.doctors?.length || 0}
-        </Tag>
-      ),
-    },
-    {
       title: "Thao tác", key: "actions", width: 100, align: "center",
       render: (_, record) => (
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>

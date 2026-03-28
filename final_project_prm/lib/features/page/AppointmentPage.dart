@@ -44,11 +44,6 @@ class _AppointmentPageState extends State<AppointmentPage> {
     // ✅ Lấy từ API response
     _doctorId = widget.doctor['_id'] ?? '';
     _clinicId = widget.doctor['clinicId'] ?? '';
-
-    print('🔍 Doctor data: ${widget.doctor}');
-
-    print('✅ Doctor ID: $_doctorId');
-    print('✅ Clinic ID: $_clinicId');
   }
 
   @override

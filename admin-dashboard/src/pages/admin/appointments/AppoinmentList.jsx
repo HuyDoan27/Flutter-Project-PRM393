@@ -20,8 +20,8 @@ const { RangePicker } = DatePicker;
 // ─── Status config ───────────────────────────────────────
 const STATUS_CFG = {
   pending: { label: "Chờ xác nhận", color: "orange", icon: <Clock size={13} /> },
-  confirmed: { label: "Đã xác nhận", color: "blue", icon: <AlertCircle size={13} /> },
-  completed: { label: "Hoàn thành", color: "green", icon: <CheckCircle size={13} /> },
+  upcoming: { label: "Chờ khám", color: "blue", icon: <Calendar size={13} /> },
+  completed: { label: "Đã khám xong", color: "green", icon: <CheckCircle size={13} /> },
   cancelled: { label: "Đã hủy", color: "red", icon: <XCircle size={13} /> },
   waiting_payment: { label: "Chờ thanh toán", color: "gold", icon: <CreditCard size={13} /> },
 };
